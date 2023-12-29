@@ -56,6 +56,26 @@ API_KEY_REGEX = r"WANDB_API_KEY=\w+(-\w+)?"
 
 MACRO_REGEX = re.compile(r"\$\{(\w+)\}")
 
+AZURE_CONTAINER_REGISTRY_URI_REGEX = re.compile(
+    r"(?:https://)?([\w]+)\.azurecr\.io/([\w\-]+):?(.*)"
+)
+
+ELASTIC_CONTAINER_REGISTRY_URI_REGEX = re.compile(
+    r"^(?P<account>.*)\.dkr\.ecr\.(?P<region>.*)\.amazonaws\.com/(?P<repository>.*)/?$"
+)
+
+GCP_ARTIFACT_REGISTRY_URI_REGEX = re.compile(
+    r"^(?P<region>[\w-]+)-docker\.pkg\.dev/(?P<project>[\w-]+)/(?P<repository>[\w-]+)/(?P<image_name>[\w-]+)$",
+    re.IGNORECASE,
+)
+
+S3_URI_RE = re.compile(r"s3://([^/]+)(/(.*))?")
+GCS_URI_RE = re.compile(r"gs://([^/]+)(?:/(.*))?")
+AZURE_BLOB_REGEX = re.compile(
+    r"^https://([^\.]+)\.blob\.core\.windows\.net/([^/]+)/?(.*)$"
+)
+
+
 PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
 
 LAUNCH_CONFIG_FILE = "~/.config/wandb/launch-config.yaml"
@@ -184,10 +204,7 @@ def set_project_entity_defaults(
             config_project = launch_config.get("project")
         project = config_project or source_uri or ""
     if entity is None:
-        config_entity = None
-        if launch_config:
-            config_entity = launch_config.get("entity")
-        entity = config_entity or api.default_entity
+        entity = get_default_entity(api, launch_config)
     prefix = ""
     if platform.system() != "Windows" and sys.stdout.encoding == "UTF-8":
         prefix = "🚀 "
@@ -195,6 +212,13 @@ def set_project_entity_defaults(
         f"{LOG_PREFIX}{prefix}Launching run into {entity}{'/' + project if project else ''}"
     )
     return project, entity
+
+
+def get_default_entity(api: Api, launch_config: Optional[Dict[str, Any]]):
+    config_entity = None
+    if launch_config:
+        config_entity = launch_config.get("entity")
+    return config_entity or api.default_entity
 
 
 def construct_launch_spec(
@@ -774,3 +798,37 @@ def recursive_macro_sub(source: Any, sub_dict: Dict[str, Optional[str]]) -> Any:
         }
     else:
         return source
+
+
+def fetch_and_validate_template_variables(
+    runqueue: Any, fields: dict
+) -> Dict[str, Any]:
+    template_variables = {}
+
+    variable_schemas = {}
+    for tv in runqueue.template_variables:
+        variable_schemas[tv["name"]] = json.loads(tv["schema"])
+
+    for field in fields:
+        field_parts = field.split("=")
+        if len(field_parts) != 2:
+            raise LaunchError(
+                f'--set-var value must be in the format "--set-var key1=value1", instead got: {field}'
+            )
+        key, val = field_parts
+        if key not in variable_schemas:
+            raise LaunchError(
+                f"Queue {runqueue.name} does not support overriding {key}."
+            )
+        schema = variable_schemas.get(key, {})
+        field_type = schema.get("type")
+        try:
+            if field_type == "integer":
+                val = int(val)
+            elif field_type == "number":
+                val = float(val)
+
+        except ValueError:
+            raise LaunchError(f"Value for {key} must be of type {field_type}.")
+        template_variables[key] = val
+    return template_variables
