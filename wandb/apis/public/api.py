@@ -88,10 +88,7 @@ class RetryingClient:
         return self._server_info
 
     def version_supported(self, min_version):
-        try:
-            from packaging.version import Version as parse_version  # noqa: N813
-        except ImportError:
-            from pkg_resources import parse_version
+        from wandb.util import parse_version
 
         return parse_version(min_version) <= parse_version(
             self.server_info["cliVersionInfo"]["max_cli_version"]
@@ -600,7 +597,9 @@ class Api:
             parts[-1] = parts[-1].split(":")[0]
         elif parts[-1]:
             id = parts[-1]
-        if len(parts) > 1:
+        if len(parts) == 1 and project != "uncategorized":
+            pass
+        elif len(parts) > 1:
             project = parts[1]
             if entity and id == project:
                 project = parts[0]
@@ -910,6 +909,15 @@ class Api:
 
     @normalize_exceptions
     def artifact_collection(self, type_name: str, name: str):
+        """Return a single artifact collection by type and parsing path in the form `entity/project/name`.
+
+        Arguments:
+            name: (str) An artifact collection name. May be prefixed with entity/project.
+            type: (str) The type of artifact collection to fetch.
+
+        Returns:
+            An `ArtifactCollection` object.
+        """
         entity, project, collection_name = self._parse_artifact_path(name)
         return public.ArtifactCollection(
             self.client, entity, project, collection_name, type_name

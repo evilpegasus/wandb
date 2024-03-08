@@ -63,9 +63,40 @@ pub mod open_metrics_filters {
         Mapping(super::MapStringKeyMapStringKeyStringValue),
     }
 }
+/// Settings for the SDK.
+///
+/// There is a hierarchy of settings, with at least the following levels:
+///
+/// 1. User process settings
+/// 2. Run settings
+///
+/// Some fields such as `run_id` only make sense at the run level.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Settings {
+    /// The W&B API key.
+    ///
+    /// This can be empty if we're in offline mode.
+    #[prost(message, optional, tag = "55")]
+    pub api_key: ::core::option::Option<::prost::alloc::string::String>,
+    /// The ID of the run.
+    #[prost(message, optional, tag = "107")]
+    pub run_id: ::core::option::Option<::prost::alloc::string::String>,
+    /// The W&B URL where the run can be viewed.
+    #[prost(message, optional, tag = "113")]
+    pub run_url: ::core::option::Option<::prost::alloc::string::String>,
+    /// The W&B project ID.
+    #[prost(message, optional, tag = "97")]
+    pub project: ::core::option::Option<::prost::alloc::string::String>,
+    /// The W&B entity, like a user or a team.
+    #[prost(message, optional, tag = "69")]
+    pub entity: ::core::option::Option<::prost::alloc::string::String>,
+    /// The directory for storing log files.
+    #[prost(message, optional, tag = "85")]
+    pub log_dir: ::core::option::Option<::prost::alloc::string::String>,
+    /// Filename to use for internal logs.
+    #[prost(message, optional, tag = "86")]
+    pub log_internal: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "1")]
     pub args: ::core::option::Option<ListStringValue>,
     #[prost(message, optional, tag = "2")]
@@ -88,44 +119,18 @@ pub struct Settings {
     pub disable_stats: ::core::option::Option<bool>,
     #[prost(message, optional, tag = "11")]
     pub disable_viewer: ::core::option::Option<bool>,
-    #[prost(message, optional, tag = "158")]
-    pub disable_machine_info: ::core::option::Option<bool>,
     #[prost(message, optional, tag = "12")]
     pub except_exit: ::core::option::Option<bool>,
     #[prost(message, optional, tag = "13")]
     pub executable: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "14")]
     pub extra_http_headers: ::core::option::Option<MapStringKeyStringValue>,
-    #[prost(message, optional, tag = "200")]
-    pub proxies: ::core::option::Option<MapStringKeyStringValue>,
-    #[prost(message, optional, tag = "147")]
-    pub file_stream_retry_max: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "148")]
-    pub file_stream_retry_wait_min_seconds: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "149")]
-    pub file_stream_retry_wait_max_seconds: ::core::option::Option<i32>,
     #[prost(message, optional, tag = "15")]
-    pub file_stream_timeout_seconds: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "150")]
-    pub file_transfer_retry_max: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "151")]
-    pub file_transfer_retry_wait_min_seconds: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "152")]
-    pub file_transfer_retry_wait_max_seconds: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "153")]
-    pub file_transfer_timeout_seconds: ::core::option::Option<i32>,
+    pub file_stream_timeout_seconds: ::core::option::Option<f64>,
     #[prost(message, optional, tag = "16")]
     pub flow_control_custom: ::core::option::Option<bool>,
     #[prost(message, optional, tag = "17")]
     pub flow_control_disabled: ::core::option::Option<bool>,
-    #[prost(message, optional, tag = "154")]
-    pub graphql_retry_max: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "155")]
-    pub graphql_retry_wait_min_seconds: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "156")]
-    pub graphql_retry_wait_max_seconds: ::core::option::Option<i32>,
-    #[prost(message, optional, tag = "157")]
-    pub graphql_timeout_seconds: ::core::option::Option<i32>,
     #[prost(message, optional, tag = "18")]
     pub internal_check_process: ::core::option::Option<f64>,
     #[prost(message, optional, tag = "19")]
@@ -134,10 +139,6 @@ pub struct Settings {
     pub ipython: ::core::option::Option<bool>,
     #[prost(message, optional, tag = "21")]
     pub jupyter: ::core::option::Option<bool>,
-    #[prost(message, optional, tag = "143")]
-    pub jupyter_name: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "144")]
-    pub jupyter_path: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "22")]
     pub jupyter_root: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "23")]
@@ -194,10 +195,6 @@ pub struct Settings {
     pub stats_open_metrics_endpoints: ::core::option::Option<MapStringKeyStringValue>,
     #[prost(message, optional, tag = "48")]
     pub stats_open_metrics_filters: ::core::option::Option<OpenMetricsFilters>,
-    #[prost(message, optional, tag = "146")]
-    pub stats_disk_paths: ::core::option::Option<ListStringValue>,
-    #[prost(message, optional, tag = "161")]
-    pub stats_buffer_size: ::core::option::Option<i32>,
     #[prost(message, optional, tag = "49")]
     pub tmp_code_dir: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "50")]
@@ -210,8 +207,6 @@ pub struct Settings {
     pub allow_val_change: ::core::option::Option<bool>,
     #[prost(message, optional, tag = "54")]
     pub anonymous: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "55")]
-    pub api_key: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "56")]
     pub azure_account_url_to_access_key: ::core::option::Option<MapStringKeyStringValue>,
     #[prost(message, optional, tag = "57")]
@@ -220,8 +215,6 @@ pub struct Settings {
     pub code_dir: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "59")]
     pub config_paths: ::core::option::Option<ListStringValue>,
-    #[prost(message, optional, tag = "160")]
-    pub colab_url: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "60")]
     pub console: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "61")]
@@ -240,8 +233,6 @@ pub struct Settings {
     pub docker: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "68")]
     pub email: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "69")]
-    pub entity: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "70")]
     pub files_dir: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "71")]
@@ -264,8 +255,6 @@ pub struct Settings {
     pub init_timeout: ::core::option::Option<f64>,
     #[prost(message, optional, tag = "80")]
     pub is_local: ::core::option::Option<bool>,
-    #[prost(message, optional, tag = "145")]
-    pub job_name: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "81")]
     pub job_source: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "82")]
@@ -274,10 +263,6 @@ pub struct Settings {
     pub launch: ::core::option::Option<bool>,
     #[prost(message, optional, tag = "84")]
     pub launch_config_path: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "85")]
-    pub log_dir: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "86")]
-    pub log_internal: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "87")]
     pub log_symlink_internal: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "88")]
@@ -294,12 +279,8 @@ pub struct Settings {
     pub problem: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "95")]
     pub program: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "159")]
-    pub program_abspath: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "96")]
     pub program_relpath: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "97")]
-    pub project: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "98")]
     pub project_url: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "99")]
@@ -318,8 +299,6 @@ pub struct Settings {
     pub root_dir: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "106")]
     pub run_group: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, optional, tag = "107")]
-    pub run_id: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "108")]
     pub run_job_type: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "109")]
@@ -330,8 +309,6 @@ pub struct Settings {
     pub run_notes: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "112")]
     pub run_tags: ::core::option::Option<ListStringValue>,
-    #[prost(message, optional, tag = "113")]
-    pub run_url: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "114")]
     pub sagemaker_disable: ::core::option::Option<bool>,
     #[prost(message, optional, tag = "115")]
@@ -390,6 +367,50 @@ pub struct Settings {
     pub username: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, optional, tag = "142")]
     pub wandb_dir: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "143")]
+    pub jupyter_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "144")]
+    pub jupyter_path: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "145")]
+    pub job_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "146")]
+    pub stats_disk_paths: ::core::option::Option<ListStringValue>,
+    #[prost(message, optional, tag = "147")]
+    pub file_stream_retry_max: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "148")]
+    pub file_stream_retry_wait_min_seconds: ::core::option::Option<f64>,
+    #[prost(message, optional, tag = "149")]
+    pub file_stream_retry_wait_max_seconds: ::core::option::Option<f64>,
+    #[prost(message, optional, tag = "150")]
+    pub file_transfer_retry_max: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "151")]
+    pub file_transfer_retry_wait_min_seconds: ::core::option::Option<f64>,
+    #[prost(message, optional, tag = "152")]
+    pub file_transfer_retry_wait_max_seconds: ::core::option::Option<f64>,
+    #[prost(message, optional, tag = "153")]
+    pub file_transfer_timeout_seconds: ::core::option::Option<f64>,
+    #[prost(message, optional, tag = "154")]
+    pub graphql_retry_max: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "155")]
+    pub graphql_retry_wait_min_seconds: ::core::option::Option<f64>,
+    #[prost(message, optional, tag = "156")]
+    pub graphql_retry_wait_max_seconds: ::core::option::Option<f64>,
+    #[prost(message, optional, tag = "157")]
+    pub graphql_timeout_seconds: ::core::option::Option<f64>,
+    #[prost(message, optional, tag = "158")]
+    pub disable_machine_info: ::core::option::Option<bool>,
+    #[prost(message, optional, tag = "159")]
+    pub program_abspath: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "160")]
+    pub colab_url: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "161")]
+    pub stats_buffer_size: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "162")]
+    pub shared: ::core::option::Option<bool>,
+    #[prost(message, optional, tag = "163")]
+    pub code_path_local: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "200")]
+    pub proxies: ::core::option::Option<MapStringKeyStringValue>,
 }
 ///
 /// Telemetry
@@ -820,6 +841,9 @@ pub struct Feature {
     /// Using Diffusers autologger
     #[prost(bool, tag = "59")]
     pub diffusers_autolog: bool,
+    /// Using Lightning Fabric logger
+    #[prost(bool, tag = "60")]
+    pub lightning_fabric_logger: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1074,10 +1098,26 @@ pub struct FinalRecord {
     pub info: ::core::option::Option<RecordInfo>,
 }
 ///
+/// Version definition
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VersionInfo {
+    /// The version of the SDK backend that produced the data
+    #[prost(string, tag = "1")]
+    pub producer: ::prost::alloc::string::String,
+    /// Minimum version of the wandb server that can read the data
+    #[prost(string, tag = "2")]
+    pub min_consumer: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "200")]
+    pub info: ::core::option::Option<RecordInfo>,
+}
+///
 /// HeaderRecord
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HeaderRecord {
+    #[prost(message, optional, tag = "1")]
+    pub version_info: ::core::option::Option<VersionInfo>,
     #[prost(message, optional, tag = "200")]
     pub info: ::core::option::Option<RecordInfo>,
 }

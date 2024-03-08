@@ -291,13 +291,14 @@ class SettingsData:
     _aws_lambda: bool
     _async_upload_concurrency_limit: int
     _cli_only_mode: bool  # Avoid running any code specific for runs
+    _code_path_local: str
     _colab: bool
     # _config_dict: Config
     _cuda: str
     _disable_meta: bool  # Do not collect system metadata
     _disable_service: (
-        bool
-    )  # Disable wandb-service, spin up internal process the old way
+        bool  # Disable wandb-service, spin up internal process the old way
+    )
     _disable_setproctitle: bool  # Do not use setproctitle on internal process
     _disable_stats: bool  # Do not collect system metrics
     _disable_viewer: bool  # Prevent early viewer query
@@ -307,21 +308,21 @@ class SettingsData:
     _extra_http_headers: Mapping[str, str]
     # file stream retry client configuration
     _file_stream_retry_max: int  # max number of retries
-    _file_stream_retry_wait_min_seconds: int  # min wait time between retries
-    _file_stream_retry_wait_max_seconds: int  # max wait time between retries
-    _file_stream_timeout_seconds: int  # timeout for individual HTTP requests
+    _file_stream_retry_wait_min_seconds: float  # min wait time between retries
+    _file_stream_retry_wait_max_seconds: float  # max wait time between retries
+    _file_stream_timeout_seconds: float  # timeout for individual HTTP requests
     # file transfer retry client configuration
     _file_transfer_retry_max: int
-    _file_transfer_retry_wait_min_seconds: int
-    _file_transfer_retry_wait_max_seconds: int
-    _file_transfer_timeout_seconds: int
+    _file_transfer_retry_wait_min_seconds: float
+    _file_transfer_retry_wait_max_seconds: float
+    _file_transfer_timeout_seconds: float
     _flow_control_custom: bool
     _flow_control_disabled: bool
     # graphql retry client configuration
     _graphql_retry_max: int
-    _graphql_retry_wait_min_seconds: int
-    _graphql_retry_wait_max_seconds: int
-    _graphql_timeout_seconds: int
+    _graphql_retry_wait_min_seconds: float
+    _graphql_retry_wait_max_seconds: float
+    _graphql_timeout_seconds: float
     _internal_check_process: float
     _internal_queue_timeout: float
     _ipython: bool
@@ -347,26 +348,25 @@ class SettingsData:
     _save_requirements: bool
     _service_transport: str
     _service_wait: float
+    _shared: bool
     _start_datetime: str
     _start_time: float
     _stats_pid: int  # (internal) base pid for system stats
     _stats_sample_rate_seconds: float
     _stats_samples_to_average: int
     _stats_join_assets: (
-        bool
-    )  # join metrics from different assets before sending to backend
+        bool  # join metrics from different assets before sending to backend
+    )
     _stats_neuron_monitor_config_path: (
-        str
-    )  # path to place config file for neuron-monitor (AWS Trainium)
+        str  # path to place config file for neuron-monitor (AWS Trainium)
+    )
     _stats_open_metrics_endpoints: Mapping[str, str]  # open metrics endpoint names/urls
     # open metrics filters in one of the two formats:
     # - {"metric regex pattern, including endpoint name as prefix": {"label": "label value regex pattern"}}
     # - ("metric regex pattern 1", "metric regex pattern 2", ...)
     _stats_open_metrics_filters: Union[Sequence[str], Mapping[str, Mapping[str, str]]]
     _stats_disk_paths: Sequence[str]  # paths to monitor disk usage
-    _stats_buffer_size: (
-        int
-    )  # number of consolidated samples to buffer before flushing, available in run obj
+    _stats_buffer_size: int  # number of consolidated samples to buffer before flushing, available in run obj
     _tmp_code_dir: str
     _tracelog: str
     _unsaved_keys: Sequence[str]
@@ -618,6 +618,10 @@ class Settings(SettingsData):
                 "hook": lambda _: is_aws_lambda(),
                 "auto_hook": True,
             },
+            _code_path_local={
+                "hook": lambda _: _get_program_relpath(self.program),
+                "auto_hook": True,
+            },
             _colab={
                 "hook": lambda _: "google.colab" in sys.modules,
                 "auto_hook": True,
@@ -649,14 +653,14 @@ class Settings(SettingsData):
             #             = 7200 / 60 + ceil(log2(60/2))
             #             = 120 + 5
             _file_stream_retry_max={"value": 125, "preprocessor": int},
-            _file_stream_retry_wait_min_seconds={"value": 2, "preprocessor": int},
-            _file_stream_retry_wait_max_seconds={"value": 60, "preprocessor": int},
+            _file_stream_retry_wait_min_seconds={"value": 2, "preprocessor": float},
+            _file_stream_retry_wait_max_seconds={"value": 60, "preprocessor": float},
             # A 3 minute timeout for all filestream post requests
-            _file_stream_timeout_seconds={"value": 180, "preprocessor": int},
+            _file_stream_timeout_seconds={"value": 180, "preprocessor": float},
             _file_transfer_retry_max={"value": 20, "preprocessor": int},
-            _file_transfer_retry_wait_min_seconds={"value": 2, "preprocessor": int},
-            _file_transfer_retry_wait_max_seconds={"value": 60, "preprocessor": int},
-            _file_transfer_timeout_seconds={"value": 0, "preprocessor": int},
+            _file_transfer_retry_wait_min_seconds={"value": 2, "preprocessor": float},
+            _file_transfer_retry_wait_max_seconds={"value": 60, "preprocessor": float},
+            _file_transfer_timeout_seconds={"value": 0, "preprocessor": float},
             _flow_control_disabled={
                 "hook": lambda _: self._network_buffer == 0,
                 "auto_hook": True,
@@ -666,9 +670,9 @@ class Settings(SettingsData):
                 "auto_hook": True,
             },
             _graphql_retry_max={"value": 20, "preprocessor": int},
-            _graphql_retry_wait_min_seconds={"value": 2, "preprocessor": int},
-            _graphql_retry_wait_max_seconds={"value": 60, "preprocessor": int},
-            _graphql_timeout_seconds={"value": 30.0, "preprocessor": int},
+            _graphql_retry_wait_min_seconds={"value": 2, "preprocessor": float},
+            _graphql_retry_wait_max_seconds={"value": 60, "preprocessor": float},
+            _graphql_timeout_seconds={"value": 30.0, "preprocessor": float},
             _internal_check_process={"value": 8, "preprocessor": float},
             _internal_queue_timeout={"value": 2, "preprocessor": float},
             _ipython={
@@ -708,6 +712,10 @@ class Settings(SettingsData):
                 "value": 30,
                 "preprocessor": float,
                 "validator": self._validate__service_wait,
+            },
+            _shared={
+                "hook": lambda _: self.mode == "shared",
+                "auto_hook": True,
             },
             _start_datetime={"preprocessor": _datetime_as_str},
             _stats_sample_rate_seconds={
@@ -959,7 +967,7 @@ class Settings(SettingsData):
 
     @staticmethod
     def _validate_mode(value: str) -> bool:
-        choices: Set[str] = {"dryrun", "run", "offline", "online", "disabled"}
+        choices: Set[str] = {"dryrun", "run", "offline", "online", "disabled", "shared"}
         if value not in choices:
             raise UsageError(f"Settings field `mode`: {value!r} not in {choices}")
         return True
@@ -1887,16 +1895,33 @@ class Settings(SettingsData):
                 f.write(json.dumps({"run_id": self.run_id}))
 
     def _apply_login(
-        self, login_settings: Dict[str, Any], _logger: Optional[_EarlyLogger] = None
+        self,
+        login_settings: Dict[str, Any],
+        _logger: Optional[_EarlyLogger] = None,
     ) -> None:
-        param_map = dict(key="api_key", host="base_url", timeout="login_timeout")
-        login_settings = {
-            param_map.get(k, k): v for k, v in login_settings.items() if v is not None
+        key_map = {
+            "key": "api_key",
+            "host": "base_url",
+            "timeout": "login_timeout",
         }
-        if login_settings:
-            if _logger:
-                _logger.info(f"Applying login settings: {_redact_dict(login_settings)}")
-            self.update(login_settings, source=Source.LOGIN)
+
+        # Rename keys and keep only the non-None values.
+        #
+        # The input keys are parameters to wandb.login(), but we use different
+        # names for some of them in Settings.
+        login_settings = {
+            key_map.get(key, key): value
+            for key, value in login_settings.items()
+            if value is not None
+        }
+
+        if _logger:
+            _logger.info(f"Applying login settings: {_redact_dict(login_settings)}")
+
+        self.update(
+            login_settings,
+            source=Source.LOGIN,
+        )
 
     def _apply_run_start(self, run_start_settings: Dict[str, Any]) -> None:
         # This dictionary maps from the "run message dict" to relevant fields in settings

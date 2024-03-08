@@ -2,16 +2,17 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/segmentio/encoding/json"
 	"github.com/wandb/wandb/core/pkg/monitor"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/wandb/wandb/core/internal/corelib"
+	"github.com/wandb/wandb/core/internal/version"
 	"github.com/wandb/wandb/core/internal/watcher"
 	"github.com/wandb/wandb/core/pkg/observability"
 	"github.com/wandb/wandb/core/pkg/service"
@@ -218,6 +219,7 @@ func (h *Handler) handleRecord(record *service.Record) {
 	case *service.Record_Alert:
 		h.handleAlert(record)
 	case *service.Record_Artifact:
+		h.handleArtifact(record)
 	case *service.Record_Config:
 		h.handleConfig(record)
 	case *service.Record_Exit:
@@ -374,6 +376,9 @@ func (h *Handler) handleDefer(record *service.Record, request *service.DeferRequ
 		},
 	)
 }
+func (h *Handler) handleArtifact(record *service.Record) {
+	h.sendRecord(record)
+}
 
 func (h *Handler) handleLogArtifact(record *service.Record) {
 	h.sendRecord(record)
@@ -407,6 +412,12 @@ func (h *Handler) handlePollExit(record *service.Record) {
 }
 
 func (h *Handler) handleHeader(record *service.Record) {
+	// populate with version info
+	versionString := fmt.Sprintf("%s+%s", version.Version, h.ctx.Value(observability.Commit("commit")))
+	record.GetHeader().VersionInfo = &service.VersionInfo{
+		Producer:    versionString,
+		MinConsumer: version.MinServerVersion,
+	}
 	h.sendRecordWithControl(
 		record,
 		func(control *service.Control) {
@@ -511,26 +522,31 @@ func (h *Handler) handleRunStart(record *service.Record, request *service.RunSta
 	// NOTE: once this request arrives in the sender,
 	// the latter will start its filestream and uploader
 	// initialize the run metadata from settings
-	metadata := &service.MetadataRequest{
-		Os:       h.settings.GetXOs().GetValue(),
-		Python:   h.settings.GetXPython().GetValue(),
-		Host:     h.settings.GetHost().GetValue(),
-		Cuda:     h.settings.GetXCuda().GetValue(),
-		Program:  h.settings.GetProgram().GetValue(),
-		CodePath: h.settings.GetProgramAbspath().GetValue(),
-		// CodePathLocal: h.settings.GetProgramAbspath().GetValue(),  // todo(launch): add this
-		Email:      h.settings.GetEmail().GetValue(),
-		Root:       h.settings.GetRootDir().GetValue(),
-		Username:   h.settings.GetUsername().GetValue(),
-		Docker:     h.settings.GetDocker().GetValue(),
-		Executable: h.settings.GetXExecutable().GetValue(),
-		Args:       h.settings.GetXArgs().GetValue(),
-		Colab:      h.settings.GetColabUrl().GetValue(),
-		StartedAt:  run.GetStartTime(),
-		Git: &service.GitRepoRecord{
+	var git *service.GitRepoRecord
+	if run.GetGit().GetRemoteUrl() != "" || run.GetGit().GetCommit() != "" {
+		git = &service.GitRepoRecord{
 			RemoteUrl: run.GetGit().GetRemoteUrl(),
 			Commit:    run.GetGit().GetCommit(),
-		},
+		}
+	}
+
+	metadata := &service.MetadataRequest{
+		Os:            h.settings.GetXOs().GetValue(),
+		Python:        h.settings.GetXPython().GetValue(),
+		Host:          h.settings.GetHost().GetValue(),
+		Cuda:          h.settings.GetXCuda().GetValue(),
+		Program:       h.settings.GetProgram().GetValue(),
+		CodePath:      h.settings.GetProgramRelpath().GetValue(),
+		CodePathLocal: h.settings.GetXCodePathLocal().GetValue(),
+		Email:         h.settings.GetEmail().GetValue(),
+		Root:          h.settings.GetRootDir().GetValue(),
+		Username:      h.settings.GetUsername().GetValue(),
+		Docker:        h.settings.GetDocker().GetValue(),
+		Executable:    h.settings.GetXExecutable().GetValue(),
+		Args:          h.settings.GetXArgs().GetValue(),
+		Colab:         h.settings.GetColabUrl().GetValue(),
+		StartedAt:     run.GetStartTime(),
+		Git:           git,
 	}
 
 	if !h.settings.GetXDisableStats().GetValue() {

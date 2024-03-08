@@ -1,3 +1,113 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+Starting with the 0.16.4 release on March 5, 2024, the format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+
+## Unreleased
+
+Starting with the next release, we would like to follow
+https://keepachangelog.com/en/1.1.0/. Please add to relevant
+subsections here on every PR where this is applicable.
+
+### Fixed
+
+* In case of transient server issues when creating the wandb API key kubernetes secret, we'll retry up to 5 times by @TimH98 in https://github.com/wandb/wandb/pull/7108
+
+
+## [0.16.4] - 2024-03-05
+
+### Added
+
+* Added ability to change artifact collection types by @biaslucas in https://github.com/wandb/wandb/pull/6971
+* Add support for installing deps from pyproject.toml by @bcsherma in https://github.com/wandb/wandb/pull/6964
+* Support kaniko build with user-provided pvc and docker config by @bcsherma in https://github.com/wandb/wandb/pull/7059
+* Added ability to import runs between W&B instances by @andrewtruong in https://github.com/wandb/wandb/pull/6897
+
+### Changed
+
+* wandb-core rate-limits requests to the backend and respects RateLimit-* headers
+  by @timoffex in https://github.com/wandb/wandb/pull/7065
+
+### Fixed
+
+* Fix passing of template variables in the sweeps-on-launch scheduler by @dannygoldstein in https://github.com/wandb/wandb/pull/6959
+* Link job artifact to a run to be specified as input by @kptkin in https://github.com/wandb/wandb/pull/6940
+* Fix sagemaker entrypoint to use given entrypoint by @KyleGoyette in https://github.com/wandb/wandb/pull/6969
+* Parse upload headers correctly by @kptkin in https://github.com/wandb/wandb/pull/6983
+* Properly propagate server errors by @kptkin in https://github.com/wandb/wandb/pull/6944
+* Make file upload faster by using parallelism by @kptkin in https://github.com/wandb/wandb/pull/6975
+* Don't send git data if it's not populated by @kptkin in https://github.com/wandb/wandb/pull/6984
+* Fix console logging resumption, avoid overwrite by @kptkin in https://github.com/wandb/wandb/pull/6963
+* Remove hostname validation when using --host on wandb login by @Jamil in https://github.com/wandb/wandb/pull/6999
+* Don't discard past visualizations when resuming a run by @timoffex in https://github.com/wandb/wandb/pull/7005
+* Avoid retrying on conflict status code by @kptkin in https://github.com/wandb/wandb/pull/7011
+* Fix visualization config merging for resumed runs in wandb-core by @timoffex in https://github.com/wandb/wandb/pull/7012
+* Replace usage of standard library's json with `segmentio`'s by @kptkin in https://github.com/wandb/wandb/pull/7027
+* Remove stderr as writer for the logs by @kptkin in https://github.com/wandb/wandb/pull/7022
+* Disable negative steps from initialization by @kptkin in https://github.com/wandb/wandb/pull/7030
+* Fix report loading in pydantic26 by @andrewtruong in https://github.com/wandb/wandb/pull/6988
+* Revert "make upload request async to support progress reporting (#6497)" by @jlzhao27 in https://github.com/wandb/wandb/pull/7049
+* Fix entrypoint specification when using a Dockerfile.wandb by @KyleGoyette in https://github.com/wandb/wandb/pull/7080
+* Fix stream releasing probe handle too early by @jlzhao27 in https://github.com/wandb/wandb/pull/7056
+* Always attempt to pull latest image for local container by @KyleGoyette in https://github.com/wandb/wandb/pull/7079
+
+### New Contributors
+* @Jamil made their first contribution in https://github.com/wandb/wandb/pull/6999
+
+
+# 0.16.3 (Feb 6, 2024)
+
+### :magic_wand: Enhancements
+* feat(core): generate data type info in core by @dmitryduev in https://github.com/wandb/wandb/pull/6827
+* feat(core): add support for Launch 🚀 by @kptkin in https://github.com/wandb/wandb/pull/6822
+* feat(public-api): Added option to control number of grouped sampled runs in reports by @thanos-wandb in https://github.com/wandb/wandb/pull/6840
+* feat(sdk): add shared mode to enable multiple independent writers to the same run by @dmitryduev in https://github.com/wandb/wandb/pull/6882
+* perf(artifacts): Reduce artifact download latency via optional cache copy + threads by @biaslucas in https://github.com/wandb/wandb/pull/6878
+* feat(artifacts): Add partial file downloads, via directory prefix by @biaslucas in https://github.com/wandb/wandb/pull/6911
+* feat(integrations): Update the Diffusers Integration by @soumik12345 in https://github.com/wandb/wandb/pull/6804
+* feat(integrations): Update Ultralytics Integration by @soumik12345 in https://github.com/wandb/wandb/pull/6796
+* feat(integrations): Add Pytorch Lightning Fabric Logger by @ash0ts in https://github.com/wandb/wandb/pull/6919
+* feat(core): update go packages by @kptkin in https://github.com/wandb/wandb/pull/6908
+### :hammer: Fixes
+* fix(launch): Remove project and runner fields from agent config by @KyleGoyette in https://github.com/wandb/wandb/pull/6818
+* fix(launch): recognize deleted k8s jobs as failed by @bcsherma in https://github.com/wandb/wandb/pull/6824
+* fix(launch): warn of extra fields in environment block instead of erroring by @bcsherma in https://github.com/wandb/wandb/pull/6833
+* fix(sdk): entity override bug where ENVVAR is prioritized over kwargs by @biaslucas in https://github.com/wandb/wandb/pull/6843
+* fix(launch): Local container runner doesn't ignore override args by @TimH98 in https://github.com/wandb/wandb/pull/6844
+* fix(sdk): merge-update config with sweep/launch config by @dannygoldstein in https://github.com/wandb/wandb/pull/6841
+* fix(sdk): fix retry logic in wandb-core and system_tests conftest by @dmitryduev in https://github.com/wandb/wandb/pull/6847
+* fix(core): use RW locks in system monitor's assets management by @dmitryduev in https://github.com/wandb/wandb/pull/6852
+* fix(launch): set build context to entrypoint dir if it contains Dockerfile.wandb by @bcsherma in https://github.com/wandb/wandb/pull/6855
+* security(launch): Mount wandb api key in launch job pods from a k8s secret by @TimH98 in https://github.com/wandb/wandb/pull/6722
+* fix(launch): wandb job create should not look for requirements.txt if Dockerfile.wandb is next to entrypoint by @bcsherma in https://github.com/wandb/wandb/pull/6861
+* fix(sdk): fix _parse_path when only id is passed to wandb.Api().run() by @luisbergua in https://github.com/wandb/wandb/pull/6858
+* fix(media): Update video.py: Fix fps bug by @stellargo in https://github.com/wandb/wandb/pull/6887
+* fix(sdk): clean up temp folders by @dmitryduev in https://github.com/wandb/wandb/pull/6891
+* fix(artifacts): fix long artifact paths on Windows by @ArtsiomWB in https://github.com/wandb/wandb/pull/6846
+* fix(sdk): Update Report API to work with pydantic2.6 by @andrewtruong in https://github.com/wandb/wandb/pull/6925
+* fix(launch): fetch all commits to enable checking out by sha by @bcsherma in https://github.com/wandb/wandb/pull/6926
+* fix(sweeps): dont swallow exceptions in pyagent by @dannygoldstein in https://github.com/wandb/wandb/pull/6927
+* fix(artifacts): artifact file upload progress in nexus by @ibindlish in https://github.com/wandb/wandb/pull/6939
+* fix(sdk): exercise caution in system monitor when rocm-smi is installed on a system with no amd gpus by @dmitryduev in https://github.com/wandb/wandb/pull/6938
+* fix(cli): typo in cli.py by @eltociear in https://github.com/wandb/wandb/pull/6892
+* fix(launch): remove deadsnakes from accelerator build step by @bcsherma in https://github.com/wandb/wandb/pull/6933
+### :books: Docs
+* docs(sdk): update sweep `docstrings` by @ngrayluna in https://github.com/wandb/wandb/pull/6830
+* docs(sdk): Updates the Tables reference docs. by @katjacksonWB in https://github.com/wandb/wandb/pull/6880
+* docs(sdk): Artifact docstrings PR by @ngrayluna in https://github.com/wandb/wandb/pull/6825
+
+## New Contributors
+* @biaslucas made their first contribution in https://github.com/wandb/wandb/pull/6843
+* @stellargo made their first contribution in https://github.com/wandb/wandb/pull/6887
+* @timoffex made their first contribution in https://github.com/wandb/wandb/pull/6916
+
+**Full Changelog**: https://github.com/wandb/wandb/compare/v0.16.2...v0.16.3
+
 # 0.16.2 (Jan 9, 2024)
 
 ### :magic_wand: Enhancements

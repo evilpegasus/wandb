@@ -8,7 +8,6 @@ from urllib.parse import quote
 import requests
 import urllib3
 
-from wandb.apis import InternalApi
 from wandb.errors.term import termwarn
 from wandb.sdk.artifacts.artifact_file_cache import (
     ArtifactFileCache,
@@ -28,6 +27,7 @@ from wandb.sdk.artifacts.storage_handlers.wb_local_artifact_handler import (
 from wandb.sdk.artifacts.storage_layout import StorageLayout
 from wandb.sdk.artifacts.storage_policies.register import WANDB_STORAGE_POLICY
 from wandb.sdk.artifacts.storage_policy import StoragePolicy
+from wandb.sdk.internal.internal_api import Api as InternalApi
 from wandb.sdk.internal.thread_local_settings import _thread_local_api_settings
 from wandb.sdk.lib.hashutil import B64MD5, b64_to_hex_id, hex_to_b64_id
 from wandb.sdk.lib.paths import FilePathStr, URIStr
@@ -60,8 +60,10 @@ class WandbStoragePolicy(StoragePolicy):
         return WANDB_STORAGE_POLICY
 
     @classmethod
-    def from_config(cls, config: Dict) -> "WandbStoragePolicy":
-        return cls(config=config)
+    def from_config(
+        cls, config: Dict, api: Optional[InternalApi] = None
+    ) -> "WandbStoragePolicy":
+        return cls(config=config, api=api)
 
     def __init__(
         self,
@@ -111,7 +113,9 @@ class WandbStoragePolicy(StoragePolicy):
         self,
         artifact: "Artifact",
         manifest_entry: "ArtifactManifestEntry",
+        dest_path: Optional[str] = None,
     ) -> FilePathStr:
+        self._cache._override_cache_path = dest_path
         path, hit, cache_open = self._cache.check_md5_obj_path(
             B64MD5(manifest_entry.digest),  # TODO(spencerpearson): unsafe cast
             manifest_entry.size if manifest_entry.size is not None else 0,
@@ -129,6 +133,7 @@ class WandbStoragePolicy(StoragePolicy):
         if manifest_entry._download_url is None:
             auth = None
             if not _thread_local_api_settings.cookies:
+                assert self._api.api_key is not None
                 auth = ("api", self._api.api_key)
             response = self._session.get(
                 self._file_url(self._api, artifact.entity, manifest_entry),
@@ -160,7 +165,12 @@ class WandbStoragePolicy(StoragePolicy):
         self,
         manifest_entry: "ArtifactManifestEntry",
         local: bool = False,
+        dest_path: Optional[str] = None,
     ) -> Union[FilePathStr, URIStr]:
+        assert manifest_entry.ref is not None
+        used_handler = self._handler._get_handler(manifest_entry.ref)
+        if hasattr(used_handler, "_cache"):
+            used_handler._cache._override_cache_path = dest_path
         return self._handler.load_path(manifest_entry, local)
 
     def _file_url(
@@ -215,9 +225,10 @@ class WandbStoragePolicy(StoragePolicy):
                     extra_headers={
                         "content-md5": md5_b64_str,
                         "content-length": str(len(data)),
-                        "content-type": extra_headers.get("Content-Type"),
+                        "content-type": extra_headers.get("Content-Type", ""),
                     },
                 )
+                assert upload_resp is not None
                 etags.append(
                     {"partNumber": part_number, "hexMD5": upload_resp.headers["ETag"]}
                 )
@@ -326,6 +337,7 @@ class WandbStoragePolicy(StoragePolicy):
                 multipart_urls,
                 extra_headers,
             )
+            assert resp.storage_path is not None
             self._api.complete_multipart_upload_artifact(
                 artifact_id, resp.storage_path, etags, resp.upload_id
             )

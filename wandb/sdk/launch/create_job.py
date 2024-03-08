@@ -272,6 +272,10 @@ def _create_repo_metadata(
     git_hash: Optional[str] = None,
     runtime: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
+    # Make sure the entrypoint doesn't contain any backward path traversal
+    if entrypoint and ".." in entrypoint:
+        wandb.termerror("Entrypoint cannot contain backward path traversal")
+        return None
     if not _is_git_uri(path):
         wandb.termerror("Path must be a git URI")
         return None
@@ -311,23 +315,6 @@ def _create_repo_metadata(
         wandb.termerror(f"Entrypoint {entrypoint} not found in git repo")
         return None
 
-    # check if requirements.txt exists
-    # start at the location of the python file and recurse up to the git root
-    req_dir = local_dir
-    while (
-        not os.path.exists(os.path.join(req_dir, "requirements.txt"))
-        and req_dir != tempdir
-    ):
-        req_dir = os.path.dirname(req_dir)
-
-    if not os.path.exists(os.path.join(req_dir, "requirements.txt")):
-        wandb.termerror(f"Could not find requirements.txt file in git repo at {path}")
-        return None
-
-    wandb.termlog(
-        f"Using requirements.txt in {req_dir.replace(tempdir, '') or 'repository root'}"
-    )
-
     metadata = {
         "git": {
             "commit": commit,
@@ -346,18 +333,16 @@ def _create_repo_metadata(
 def _create_artifact_metadata(
     path: str, entrypoint: str, runtime: Optional[str] = None
 ) -> Tuple[Dict[str, Any], List[str]]:
-    if not os.path.exists(path):
+    if not os.path.isdir(path):
         wandb.termerror("Path must be a valid file or directory")
-        return {}, []
-
-    if not os.path.exists(os.path.join(path, "requirements.txt")):
-        wandb.termerror(f"Could not find requirements.txt file in: {path}")
         return {}, []
 
     # read local requirements.txt and dump to temp dir for builder
     requirements = []
-    with open(os.path.join(path, "requirements.txt")) as f:
-        requirements = f.read().splitlines()
+    depspath = os.path.join(path, "requirements.txt")
+    if os.path.exists(depspath):
+        with open(depspath) as f:
+            requirements = f.read().splitlines()
 
     if runtime:
         python_version = _clean_python_version(runtime)

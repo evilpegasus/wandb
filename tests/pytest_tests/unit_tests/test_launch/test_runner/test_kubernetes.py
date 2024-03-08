@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import wandb
+from kubernetes_asyncio import client
 from kubernetes_asyncio.client import ApiException
 from wandb.sdk.launch._project_spec import LaunchProject
 from wandb.sdk.launch.errors import LaunchError
@@ -23,6 +24,7 @@ from wandb.sdk.launch.runner.kubernetes_runner import (
     add_entrypoint_args_overrides,
     add_label_to_pods,
     add_wandb_env,
+    ensure_api_key_secret,
     maybe_create_imagepull_secret,
 )
 
@@ -227,6 +229,7 @@ class MockCoreV1Api:
     def __init__(self):
         self.pods = dict()
         self.secrets = []
+        self.calls = {"delete": 0}
 
     async def list_namespaced_pod(
         self, label_selector=None, namespace="default", field_selector=None
@@ -240,10 +243,25 @@ class MockCoreV1Api:
         return self.pods[name]
 
     async def delete_namespaced_secret(self, namespace, name):
-        pass
+        self.secrets = list(
+            filter(
+                lambda s: not (s[0] == namespace and s[1].metadata.name == name),
+                self.secrets,
+            )
+        )
+        self.calls["delete"] += 1
 
     async def create_namespaced_secret(self, namespace, body):
+        for s in self.secrets:
+            if s[0] == namespace and s[1].metadata.name == body.metadata.name:
+                raise ApiException(status=409)
+
         self.secrets.append((namespace, body))
+
+    async def read_namespaced_secret(self, namespace, name):
+        for s in self.secrets:
+            if s[0] == namespace and s[1].metadata.name == name:
+                return s[1]
 
 
 class MockCustomObjectsApi:
@@ -661,6 +679,73 @@ async def test_launch_kube_failed(
     assert str(await submitted_run.get_status()) == "failed"
 
 
+@pytest.mark.timeout(320)
+@pytest.mark.asyncio
+async def test_launch_kube_api_secret_failed(
+    monkeypatch,
+    mock_batch_api,
+    mock_kube_context_and_api_client,
+    mock_create_from_dict,
+    mock_maybe_create_image_pullsecret,
+    mock_event_streams,
+    test_api,
+    manifest,
+    clean_monitor,
+):
+    async def mock_maybe_create_imagepull_secret(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "wandb.sdk.launch.runner.kubernetes_runner.maybe_create_imagepull_secret",
+        mock_maybe_create_imagepull_secret,
+    )
+    mock_la = MagicMock()
+    mock_la.initialized = MagicMock(return_value=True)
+    monkeypatch.setattr(
+        "wandb.sdk.launch.runner.kubernetes_runner.LaunchAgent", mock_la
+    )
+
+    async def mock_create_namespaced_secret(*args, **kwargs):
+        raise Exception("Test exception")
+
+    mock_core_api = MagicMock()
+    mock_core_api.create_namespaced_secret = mock_create_namespaced_secret
+    monkeypatch.setattr(
+        "wandb.sdk.launch.runner.kubernetes_runner.kubernetes_asyncio.client.CoreV1Api",
+        mock_core_api,
+    )
+    monkeypatch.setattr("wandb.termwarn", MagicMock())
+    mock_batch_api.jobs = {"test-job": MockDict(manifest)}
+    project = LaunchProject(
+        docker_config={"docker_image": "test_image"},
+        target_entity="test_entity",
+        target_project="test_project",
+        resource_args={"kubernetes": manifest},
+        launch_spec={"_wandb_api_key": "test_key"},
+        overrides={
+            "args": ["--test_arg", "test_value"],
+            "command": ["test_entry"],
+        },
+        resource="kubernetes",
+        api=test_api,
+        git_info={},
+        job="",
+        uri="https://wandb.ai/test_entity/test_project/runs/test_run",
+        run_id="test_run_id",
+        name="test_run",
+    )
+    runner = KubernetesRunner(
+        test_api, {"SYNCHRONOUS": False}, MagicMock(), MagicMock()
+    )
+    with pytest.raises(LaunchError):
+        await runner.run(project, MagicMock())
+
+    assert wandb.termwarn.call_count == 6
+    assert wandb.termwarn.call_args_list[0][0][0].startswith(
+        "Exception when ensuring Kubernetes API key secret"
+    )
+
+
 @pytest.mark.asyncio
 async def test_maybe_create_imagepull_secret_given_creds():
     mock_registry = MagicMock()
@@ -692,6 +777,41 @@ async def test_maybe_create_imagepull_secret_given_creds():
             }
         ).encode("utf-8")
     ).decode("utf-8")
+
+
+@pytest.mark.asyncio
+async def test_create_api_key_secret():
+    api = MockCoreV1Api()
+    await ensure_api_key_secret(api, "wandb-api-key-testagent", "wandb", "testsecret")
+    namespace, secret = api.secrets[0]
+    assert namespace == "wandb"
+    assert secret.metadata.name == "wandb-api-key-testagent"
+    assert secret.data["password"] == base64.b64encode(b"testsecret").decode()
+
+
+@pytest.mark.asyncio
+async def test_create_api_key_secret_exists():
+    api = MockCoreV1Api()
+
+    # Create secret with same name but different data, assert it gets overwritten
+    secret_data = "bad data"
+    labels = {"wandb.ai/created-by": "launch-agent"}
+    secret = client.V1Secret(
+        data=secret_data,
+        metadata=client.V1ObjectMeta(
+            name="wandb-api-key-testagent", namespace="wandb", labels=labels
+        ),
+        kind="Secret",
+        type="kubernetes.io/basic-auth",
+    )
+    await api.create_namespaced_secret("wandb", secret)
+
+    await ensure_api_key_secret(api, "wandb-api-key-testagent", "wandb", "testsecret")
+    namespace, secret = api.secrets[0]
+    assert namespace == "wandb"
+    assert secret.metadata.name == "wandb-api-key-testagent"
+    assert secret.data["password"] == base64.b64encode(b"testsecret").decode()
+    assert api.calls["delete"] == 1
 
 
 # Test monitor class.

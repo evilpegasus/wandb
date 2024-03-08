@@ -1,11 +1,11 @@
 import os
+import pathlib
 import platform
-import subprocess
+import sysconfig
 from distutils import log
-from pathlib import Path
 
 from setuptools import setup
-from setuptools.command.develop import develop
+from setuptools.command.build_py import build_py
 from wheel.bdist_wheel import bdist_wheel, get_platform
 
 # Package naming
@@ -14,122 +14,106 @@ from wheel.bdist_wheel import bdist_wheel, get_platform
 
 # wandb-core versioning
 # ---------------------
-CORE_VERSION = "0.17.0b6"
+CORE_VERSION = "0.17.0b10"
+
+PACKAGE = "wandb_core"
 
 
-PACKAGE: str = "wandb_core"
-PLATFORMS_TO_BUILD_WITH_CGO = (
-    "darwin-arm64",
-    "linux-amd64",
-)
+class CustomWheel(bdist_wheel):
+    """Overrides the wheel tag with the proper information.
 
+    wandb-core is an extremely simple wheel that doesn't depend on a particular
+    Python implementation or a Python ABI but includes platform-specific
+    binaries.
 
-class WBCoreBase:
-    @staticmethod
-    def _get_package_path():
-        base = Path(__file__).parent / PACKAGE
-        print(f"Package path: {base}")
-        return base
+    Python wheel names describe the environments they can run in using platform
+    compatibility tags:
+    https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/
 
-    def _build_core(self):
-        core_path = self._get_package_path()
+    The platform tag cannot be inferred, so we set it manually.
+    """
 
-        src_dir = Path(__file__).parent
-
-        env = os.environ.copy()
-        log.info(env)
-
-        goos = platform.system().lower()
-        goarch = platform.machine().lower()
-        if goarch == "x86_64":
-            goarch = "amd64"
-        elif goarch == "aarch64":
-            goarch = "arm64"
-        elif goarch == "armv7l":
-            goarch = "armv6l"
-
-        # Check the PLAT environment variable available in cibuildwheel
-        cibw_plat = env.get("PLAT", "")
-
-        # Custom logic for darwin-arm64 in cibuildwheel
-        # (it's built on an x86_64 mac with qemu, so we need to override the arch)
-        if goos == "darwin" and cibw_plat.endswith("arm64"):
-            goarch = "arm64"
-
-        # build a binary for coverage profiling if the GOCOVERDIR env var is set
-        gocover = True if os.environ.get("GOCOVERDIR") else False
-
-        # cgo is needed on:
-        #  - arm macs to build the gopsutil dependency,
-        #    otherwise several system metrics will be unavailable.
-        #  - linux to build the dependencies needed to get GPU metrics.
-        if f"{goos}-{goarch}" in PLATFORMS_TO_BUILD_WITH_CGO:
-            env["CGO_ENABLED"] = "1"
-
-        os.makedirs(core_path, exist_ok=True)
-        commit = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=src_dir)
-            .decode("utf-8")
-            .strip()
-        )
-
-        ldflags = f"-s -w -X main.commit={commit}"
-        if f"{goos}-{goarch}" == "linux-amd64":
-            # todo: try llvm's lld linker
-            ldflags += ' -extldflags "-fuse-ld=gold -Wl,--weak-unresolved-symbols"'
-        cmd = [
-            "go",
-            "build",
-            f"-ldflags={ldflags}",
-            "-o",
-            str(core_path / "wandb-core"),
-            "cmd/wandb-core/main.go",
-        ]
-        if gocover:
-            cmd.insert(2, "-cover")
-        log.info(f"Building for {goos}-{goarch}")
-        log.info(f"Running command: {' '.join(cmd)}")
-        subprocess.check_call(cmd, cwd=src_dir, env=env)
-
-        # TODO: this is a temporary hack
-        # copy the binary to ../client
-        client_path = src_dir.parent / "client"
-        if client_path.exists():
-            log.info("Copying wandb-core binary")
-            # mkdir core_path / "wandb":
-            os.makedirs(client_path / "wandb", exist_ok=True)
-            subprocess.check_call(
-                ["cp", str(core_path / "wandb-core"), str(client_path / "wandb")]
-            )
-
-        # on arm macs, copy over the stats monitor binary, if available
-        # it is built separately with `nox -s build-apple-stats-monitor` to avoid
-        # having to wait for that to build on every run.
-        if goos == "darwin" and goarch == "arm64":
-            monitor_path = src_dir / "pkg/monitor/apple/AppleStats"
-            if monitor_path.exists():
-                log.info("Copying AppleStats binary")
-                subprocess.check_call(["cp", str(monitor_path), str(core_path)])
-
-
-class WrapDevelop(develop, WBCoreBase):
-    def run(self):
-        develop.run(self)
-        self._build_core()
-
-
-class WrapBdistWheel(bdist_wheel, WBCoreBase):
+    # Why override get_tag() instead of initialize_options()?
+    #
+    # Setting self.plat_name in initialize_options() would be the proper way to
+    # do this, but see the macOS issue described below.
     def get_tag(self):
-        # Use the default implementation to get python and abi tags
-        python, abi = bdist_wheel.get_tag(self)[:2]
-        # Use the wheel package function to determine platform tag
+        python, abi = super().get_tag()[:2]
+
+        # We always build wheels for the platform we're running on.
+        #
+        # See https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/#platform-tag
+        #
+        # For manylinux: https://github.com/pypa/auditwheel upgrades "linux"
+        # platform tags to "manylinux" for us. cibuildwheel runs auditwheel
+        # in the "repair wheel" step.
+        #
+        # Ideally we would use `sysconfig.get_platform()` here, but due to
+        # historical changes in macOS versioning, it did not return a minor
+        # version for new macOS-es until Python 3.12. This unfortunately
+        # confuses pip, resulting in errors like
+        #
+        #   ERROR: wandb_core-0.17.0b9-py3-none-macosx_14_arm64.whl is not a supported wheel on this platform.
+        #
+        # See https://github.com/python/cpython/issues/102362.
+        #
+        # For unknown reasons, discovered purely by experimentation, the issue
+        # is resolved by overriding `bdist_wheel.get_tag()` and using the
+        # `wheel` package's `get_platform()` function. Notably, neither sysconfig
+        # in `get_tag()` nor `get_platform()` in `initialize_options()` works.
         plat_name = get_platform(self.bdist_dir)
-        # todo: add MACOSX_DEPLOYMENT_TARGET to support older macs
+
         return python, abi, plat_name
 
+
+class CustomBuildPy(build_py):
+    """Custom step to copy pre-built binary artifacts into the package."""
+
     def run(self):
-        self._build_core()
-        bdist_wheel.run(self)
+        pkgdir = pathlib.Path(__file__).parent / PACKAGE
+
+        # Figure out the normalized architecture name for our current arch.
+        arch = platform.machine().lower()
+        if arch == "arm64":
+            arch = "aarch64"
+        elif arch == "amd64":
+            arch = "x86_64"
+
+        # We use cibuildwheel to create platform-specific wheels.
+        #
+        # On the ARM64 macOS-14 GitHub runner, platform.machine() sometimes
+        # returns x86_64 instead of arm64. This seems to be caused by
+        # cibuildwheel downloading an x86_64 Python on older machines, causing
+        # it to run via Rosetta, which (probably) causes `uname -m` to return
+        # x86_64.
+        #
+        # In these cases, `sysconfig.get_platform()` seems to still have the
+        # correct information.
+        sysplat = sysconfig.get_platform()
+        if sysplat.endswith("arm64"):
+            arch = "aarch64"
+            print(
+                f"setup.py: target architecture is '{arch}' "
+                f"(from sysconfig.get_platform() == '{sysplat}')"
+            )
+        else:
+            print(f"setup.py: target architecture is '{arch}'")
+
+        # Symlink the artifacts into bin/. The build system will copy the
+        # actual files into the wheel.
+        archdir = pkgdir.parent / "wandb_core_artifacts" / arch
+        for file in archdir.iterdir():
+            dest = pkgdir / file.name
+
+            try:
+                # missing_ok=True doesn't exist in Python 3.7
+                dest.unlink()
+            except FileNotFoundError:
+                pass
+
+            os.symlink(file, dest)
+
+        super().run()
 
 
 if __name__ == "__main__":
@@ -147,7 +131,7 @@ if __name__ == "__main__":
         license="MIT license",
         python_requires=">=3.6",
         cmdclass={
-            "develop": WrapDevelop,
-            "bdist_wheel": WrapBdistWheel,
+            "bdist_wheel": CustomWheel,
+            "build_py": CustomBuildPy,
         },
     )

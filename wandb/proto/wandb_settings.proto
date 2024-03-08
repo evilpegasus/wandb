@@ -23,7 +23,38 @@ message OpenMetricsFilters {
   }
 }
 
+// Settings for the SDK.
+//
+// There is a hierarchy of settings, with at least the following levels:
+//
+// 1. User process settings
+// 2. Run settings
+//
+// Some fields such as `run_id` only make sense at the run level.
 message Settings {
+  // The W&B API key.
+  //
+  // This can be empty if we're in offline mode.
+  google.protobuf.StringValue api_key = 55;
+
+  // The ID of the run.
+  google.protobuf.StringValue run_id = 107;
+
+  // The W&B URL where the run can be viewed.
+  google.protobuf.StringValue run_url = 113;
+
+  // The W&B project ID.
+  google.protobuf.StringValue project = 97;
+
+  // The W&B entity, like a user or a team.
+  google.protobuf.StringValue entity = 69;
+
+  // The directory for storing log files.
+  google.protobuf.StringValue log_dir = 85;
+
+  // Filename to use for internal logs.
+  google.protobuf.StringValue log_internal = 86;
+
   ListStringValue _args = 1;
   google.protobuf.BoolValue _aws_lambda = 2;
   google.protobuf.Int32Value _async_upload_concurrency_limit = 3;
@@ -35,31 +66,16 @@ message Settings {
   google.protobuf.BoolValue _disable_setproctitle = 9;
   google.protobuf.BoolValue _disable_stats = 10;
   google.protobuf.BoolValue _disable_viewer = 11;
-  google.protobuf.BoolValue _disable_machine_info = 158;
   google.protobuf.BoolValue _except_exit = 12;
   google.protobuf.StringValue _executable = 13;
   MapStringKeyStringValue _extra_http_headers = 14;
-  MapStringKeyStringValue _proxies = 200;
-  google.protobuf.Int32Value _file_stream_retry_max = 147;
-  google.protobuf.Int32Value _file_stream_retry_wait_min_seconds = 148;
-  google.protobuf.Int32Value _file_stream_retry_wait_max_seconds = 149;
-  google.protobuf.Int32Value _file_stream_timeout_seconds = 15;
-  google.protobuf.Int32Value _file_transfer_retry_max = 150;
-  google.protobuf.Int32Value _file_transfer_retry_wait_min_seconds = 151;
-  google.protobuf.Int32Value _file_transfer_retry_wait_max_seconds = 152;
-  google.protobuf.Int32Value _file_transfer_timeout_seconds = 153;
+  google.protobuf.DoubleValue _file_stream_timeout_seconds = 15;
   google.protobuf.BoolValue _flow_control_custom = 16;
   google.protobuf.BoolValue _flow_control_disabled = 17;
-  google.protobuf.Int32Value _graphql_retry_max = 154;
-  google.protobuf.Int32Value _graphql_retry_wait_min_seconds = 155;
-  google.protobuf.Int32Value _graphql_retry_wait_max_seconds = 156;
-  google.protobuf.Int32Value _graphql_timeout_seconds = 157;
   google.protobuf.DoubleValue _internal_check_process = 18;
   google.protobuf.DoubleValue _internal_queue_timeout = 19;
   google.protobuf.BoolValue _ipython = 20;
   google.protobuf.BoolValue _jupyter = 21;
-  google.protobuf.StringValue _jupyter_name = 143;
-  google.protobuf.StringValue _jupyter_path = 144;
   google.protobuf.StringValue _jupyter_root = 22;
   google.protobuf.BoolValue _kaggle = 23;
   google.protobuf.Int32Value _live_policy_rate_limit = 24;
@@ -87,20 +103,16 @@ message Settings {
   google.protobuf.StringValue _stats_neuron_monitor_config_path = 46;
   MapStringKeyStringValue _stats_open_metrics_endpoints = 47;
   OpenMetricsFilters _stats_open_metrics_filters = 48;
-  ListStringValue _stats_disk_paths = 146;
-  google.protobuf.Int32Value _stats_buffer_size = 161;
   google.protobuf.StringValue _tmp_code_dir = 49;
   google.protobuf.StringValue _tracelog = 50;
   ListStringValue _unsaved_keys = 51;
   google.protobuf.BoolValue _windows = 52;
   google.protobuf.BoolValue allow_val_change = 53;
   google.protobuf.StringValue anonymous = 54;
-  google.protobuf.StringValue api_key = 55;
   MapStringKeyStringValue azure_account_url_to_access_key = 56;
   google.protobuf.StringValue base_url = 57;
   google.protobuf.StringValue code_dir = 58;
   ListStringValue config_paths = 59;
-  google.protobuf.StringValue colab_url = 160;
   google.protobuf.StringValue console = 60;
   google.protobuf.StringValue deployment = 61;
   google.protobuf.BoolValue disable_code = 62;
@@ -110,7 +122,6 @@ message Settings {
   google.protobuf.BoolValue disabled = 66;
   google.protobuf.StringValue docker = 67;
   google.protobuf.StringValue email = 68;
-  google.protobuf.StringValue entity = 69;
   google.protobuf.StringValue files_dir = 70;
   google.protobuf.BoolValue force = 71;
   google.protobuf.StringValue git_commit = 72;
@@ -122,13 +133,10 @@ message Settings {
   ListStringValue ignore_globs = 78;
   google.protobuf.DoubleValue init_timeout = 79;
   google.protobuf.BoolValue is_local = 80;
-  google.protobuf.StringValue job_name = 145;
   google.protobuf.StringValue job_source = 81;
   google.protobuf.BoolValue label_disable = 82;
   google.protobuf.BoolValue launch = 83;
   google.protobuf.StringValue launch_config_path = 84;
-  google.protobuf.StringValue log_dir = 85;
-  google.protobuf.StringValue log_internal = 86;
   google.protobuf.StringValue log_symlink_internal = 87;
   google.protobuf.StringValue log_symlink_user = 88;
   google.protobuf.StringValue log_user = 89;
@@ -137,9 +145,7 @@ message Settings {
   google.protobuf.StringValue notebook_name = 93;
   google.protobuf.StringValue problem = 94;
   google.protobuf.StringValue program = 95;
-  google.protobuf.StringValue program_abspath = 159;
   google.protobuf.StringValue program_relpath = 96;
-  google.protobuf.StringValue project = 97;
   google.protobuf.StringValue project_url = 98;
   google.protobuf.BoolValue quiet = 99;
   google.protobuf.BoolValue reinit = 100;
@@ -149,13 +155,11 @@ message Settings {
   google.protobuf.BoolValue resumed = 104;
   google.protobuf.StringValue root_dir = 105;
   google.protobuf.StringValue run_group = 106;
-  google.protobuf.StringValue run_id = 107;
   google.protobuf.StringValue run_job_type = 108;
   google.protobuf.StringValue run_mode = 109;
   google.protobuf.StringValue run_name = 110;
   google.protobuf.StringValue run_notes = 111;
   ListStringValue run_tags = 112;
-  google.protobuf.StringValue run_url = 113;
   google.protobuf.BoolValue sagemaker_disable = 114;
   google.protobuf.BoolValue save_code = 115;
   google.protobuf.StringValue settings_system = 116;
@@ -185,6 +189,29 @@ message Settings {
   google.protobuf.StringValue tmp_dir = 140;
   google.protobuf.StringValue username = 141;
   google.protobuf.StringValue wandb_dir = 142;
+  google.protobuf.StringValue _jupyter_name = 143;
+  google.protobuf.StringValue _jupyter_path = 144;
+  google.protobuf.StringValue job_name = 145;
+  ListStringValue _stats_disk_paths = 146;
+  google.protobuf.Int32Value _file_stream_retry_max = 147;
+  google.protobuf.DoubleValue _file_stream_retry_wait_min_seconds = 148;
+  google.protobuf.DoubleValue _file_stream_retry_wait_max_seconds = 149;
+  google.protobuf.Int32Value _file_transfer_retry_max = 150;
+  google.protobuf.DoubleValue _file_transfer_retry_wait_min_seconds = 151;
+  google.protobuf.DoubleValue _file_transfer_retry_wait_max_seconds = 152;
+  google.protobuf.DoubleValue _file_transfer_timeout_seconds = 153;
+  google.protobuf.Int32Value _graphql_retry_max = 154;
+  google.protobuf.DoubleValue _graphql_retry_wait_min_seconds = 155;
+  google.protobuf.DoubleValue _graphql_retry_wait_max_seconds = 156;
+  google.protobuf.DoubleValue _graphql_timeout_seconds = 157;
+  google.protobuf.BoolValue _disable_machine_info = 158;
+  google.protobuf.StringValue program_abspath = 159;
+  google.protobuf.StringValue colab_url = 160;
+  google.protobuf.Int32Value _stats_buffer_size = 161;
+  google.protobuf.BoolValue _shared = 162;
+  google.protobuf.StringValue _code_path_local = 163;
+
+  MapStringKeyStringValue _proxies = 200;
 
   // todo?
   //  map<google.protobuf.StringValue, google.protobuf.Int32Value> _sources =
